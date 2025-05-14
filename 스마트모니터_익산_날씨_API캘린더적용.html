@@ -1,0 +1,139 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>익산 시계/캘린더/날씨</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: #1e1e1e;
+      color: white;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .left {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .right {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .clock {
+      font-size: 160px;
+      margin-bottom: 20px;
+    }
+    .date {
+      font-size: 40px;
+      margin-bottom: 30px;
+    }
+    .weekly-weather {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .day-weather {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 20px;
+    }
+    .day-weather img {
+      width: 50px;
+      height: 50px;
+      margin-top: 5px;
+    }
+    .day-weather .temp {
+      font-size: 16px;
+      margin-top: 5px;
+    }
+    iframe.calendar {
+      width: 100%;
+      height: 90%;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="left">
+    <div class="clock" id="clock">--:--</div>
+    <div class="date" id="date">--월 --일 (---)</div>
+    <div class="weekly-weather" id="weeklyWeather"></div>
+  </div>
+  <div class="right">
+    <iframe class="calendar" src="https://calendar.google.com/calendar/embed?height=600&wkst=1&ctz=Asia%2FSeoul&showPrint=0&src=leecd8021%40gmail.com&color=%237CB342&color=%230B8043&color=%237986CB" frameborder="0" scrolling="no"></iframe>
+  </div>
+
+  <script>
+    function updateClock() {
+      const now = new Date();
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      document.getElementById('clock').textContent = `${String(hours).padStart(2, '0')}:${minutes}`;
+      const dateOptions = { month: 'long', day: 'numeric', weekday: 'long' };
+      const dateStr = now.toLocaleDateString('ko-KR', dateOptions);
+      const temp = window.currentTemp !== undefined ? ` (${window.currentTemp}°C)` : '';
+      document.getElementById('date').textContent = dateStr + temp;
+    }
+
+    async function fetchWeather() {
+      const apiKey = '17f7bc0ee0221fbb4a688721e3f960d3';
+      const city = 'Iksan';
+      const url = `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric&lang=kr`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        window.currentTemp = Math.round(data.list[0].main.temp);
+        updateClock();
+
+        const dailyData = {}
+        data.list.forEach(item => {
+          const date = new Date(item.dt_txt);
+          const day = date.getDay();
+          const hours = date.getHours();
+          const key = date.toDateString();
+          if (!dailyData[key]) {
+            dailyData[key] = { label: date.toLocaleDateString('ko-KR', { weekday: 'short' }).slice(0, 1), temp: [], icon: item.weather[0].icon };
+          }
+          dailyData[key].temp.push(item.main.temp);
+        });
+
+        const weeklyContainer = document.getElementById('weeklyWeather');
+        weeklyContainer.innerHTML = '';
+
+        Object.values(dailyData).slice(0, 7).forEach(day => {
+          const avgTemp = Math.round(day.temp.reduce((a, b) => a + b) / day.temp.length);
+          weeklyContainer.innerHTML += `
+            <div class="day-weather">
+              <div>${day.label}</div>
+              <img src="https://openweathermap.org/img/wn/${day.icon}@2x.png" alt="날씨">
+              <div class="temp">${avgTemp}°C</div>
+            </div>`;
+        });
+
+      } catch (error) {
+        document.getElementById('weeklyWeather').textContent = '주간 날씨 불러오기 실패';
+      }
+    }
+
+    setInterval(updateClock, 1000);
+    updateClock();
+    fetchWeather();
+    setInterval(fetchWeather, 1800000);
+  </script>
+</body>
+</html>
